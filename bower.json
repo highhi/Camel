@@ -1,0 +1,23 @@
+{
+  "name": "my-starter-kit",
+  "version": "0.1.4",
+  "main": [
+    "index.js"
+  ],
+  "ignore": [
+    "test",
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "tests"
+  ],
+  "homepage": "https://github.com/highhi/my-starter-kit",
+  "authors": [
+    "highhi"
+  ],
+  "description": "my bower.json",
+  "license": "MIT",
+  "devDependencies": {
+    "jquery": "1"
+  }
+}

@@ -1,0 +1,15 @@
+//
+// Layout
+// --------------------------------------------------
+
+// grid
+.l-grid {
+    display : table !important;
+    word-spacing: -1em !important;
+}
+
+.l-grid__item {
+    display: inline-block !important;
+    vertical-align: top !important;
+    word-spacing: normal !important;
+}

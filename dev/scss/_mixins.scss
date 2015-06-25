@@ -1,0 +1,86 @@
+//
+// Mixins
+// --------------------------------------------------
+
+// clerfix
+//---------------------------------------------------
+@mixin clear {
+    &:after {
+        content: "";
+        display: block;
+        clear: both;
+    }
+}
+
+// inline-block
+//---------------------------------------------------
+@mixin ib($value) {
+    display: inline-block;
+    vertical-align: $value;
+}
+
+// font-size
+//---------------------------------------------------
+@mixin fz($size: 14) {
+    font-size: $size + px;
+    font-size: ($size / 10)  + rem;
+}
+
+// backgoround
+//---------------------------------------------------
+@mixin bgimg($file, $value) {
+    background : url(#{$bgimg}#{$file}) $value;
+}
+
+// sprite-image
+//---------------------------------------------------
+@mixin spr-img($sprite) {
+    background-image : url($sprite);
+    background-repeat: no-repeat;
+    padding-left: 20px;
+}
+
+@mixin sprs($sprites) {
+    @each $sprite in $sprites {
+        $sprite-name: nth($sprite, 10);
+        .#{$sprite-name}{
+            @include sprite-position($sprite);
+            @include sprite-width($sprite);
+            @include sprite-height($sprite);
+        }
+    }
+}
+
+// grid
+//---------------------------------------------------
+@mixin grid($width, $margin, $column) {
+    width: $width;
+}
+
+// Keyframes
+@mixin keyframes($animation-name) {
+    @-webkit-keyframes $animation-name {
+        @content;
+    }
+    @-moz-keyframes $animation-name {
+        @content;
+    }
+    @-ms-keyframes $animation-name {
+        @content;
+    }
+    @-o-keyframes $animation-name {
+        @content;
+    }
+    @keyframes $animation-name {
+        @content;
+    }
+}
+
+// animation
+@mixin animation($str) {
+    -webkit-animation: #{$str};
+    -moz-animation: #{$str};
+    -ms-animation: #{$str};
+    -o-animation: #{$str};
+    animation: #{$str};
+}

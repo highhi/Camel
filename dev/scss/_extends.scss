@@ -1,0 +1,14 @@
+//
+// Extends
+// --------------------------------------------------
+
+%clear {
+    @include clear;
+}
+
+%center {
+    width: $siteWidth;
+    margin-left: auto;
+    margin-right: auto;
+    @include clear;
+}

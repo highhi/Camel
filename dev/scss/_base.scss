@@ -1,0 +1,64 @@
+//
+// Base
+// --------------------------------------------------
+
+html, body {
+    min-width: $siteWidth;
+    transform: translate(10px);
+}
+
+body {
+    font-family: $fontHiragino;
+    font-size: $fontSize;
+    line-height: $lineHeight;
+    color: $fontColor;
+}
+
+// a
+a {
+    text-decoration: none;
+    &:hover {
+        text-decoration: underline
+    }
+}
+
+//sprite
+.sprites {
+    @include spr-img($spritesheet-image);
+}
+
+@include sprs($spritesheet-sprites);
+
+
+//header
+.Header {
+    @extend %center;
+    margin-bottom: 60px;
+}
+
+//logo
+.Logo {
+    float: left;
+}
+
+//nav
+.Nav {
+    float: right;
+    padding-top: 12px;
+}
+
+.Nav__item {
+    @include ib(top);
+    margin-left: 14px;
+}
+
+//container
+.Container {
+    @extend %center;
+}
+
+//footer
+.Footer {
+    @extend %center;
+    margin-top: 60px;
+}
