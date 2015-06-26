@@ -9,13 +9,11 @@ $ 		= require('gulp-load-plugins')()
 
 # html minify
 gulp.task 'html', ->
-	opts = 
-		conditionals: true,
-		spare:true
-
-	gulp.src ['dev/**/*.html']
+	gulp.src 'dev/**/*.html'
 	.pipe $.plumber()
-	.pipe $.minifyHtml(opts)
+	.pipe $.minifyHtml
+		conditionals : true
+		quotes : true
 	.pipe gulp.dest 'public'
 
 # sass compile
@@ -36,6 +34,8 @@ gulp.task 'js', ->
     .pipe $.jshint.reporter 'jshint-stylish'
 	.pipe $.sourcemaps.init loadMaps: true
 		.pipe $.uglify()
+		.pipe $.rename
+			suffix : '.min'
 	.pipe $.sourcemaps.write './',
 		sourceRoot : '/dev/js/'
 	.pipe gulp.dest 'public/js'
@@ -48,7 +48,6 @@ gulp.task 'images', ->
 		optimizationLevel : 7
 		progressive : true
 		interlaced : true
-
 	.pipe gulp.dest('public/img')
 
 # public 初期化

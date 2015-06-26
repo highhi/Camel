@@ -7,6 +7,18 @@
 	<link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<script src="/js/camel.js"></script>
+<p id="id-p" class="cl-p">target</p>
+<p class="cl-p">target</p>
+<p class="cl-p">target</p>
+<script src="/js/camel.min.js"></script>
+<script>
+	document.addEventListener('DOMContentLoaded', function(){
+		var $p = C('.cl-p');
+		$p.css({
+			'display' : 'block',
+			'color' : 'red'
+		});
+	}, false);
+</script>
 </body>
 </html>
