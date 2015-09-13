@@ -18,7 +18,9 @@
         elm        : marge( elementsQuery, {
             addClass    : addClass,
             removeClass : removeClass,
-            toggleClass : toggleClass
+            toggleClass : toggleClass,
+            hasClass    : hasClass,
+            clazz       : clazz
         })
     });
 
@@ -236,6 +238,47 @@
         return original;
     }
 
+    /**
+     * クラス名の有無を調べる
+     * @param  {Node}  elm
+     * @param  {String}  str
+     * @return {Boolean}
+     */
+    function hasClass( elm, str ) {
+        var
+            el = isString( elm ) ? elementsSelector( elm ) : elm,
+            len = el.length,
+            names
+        ;
+
+        if( el.length )  return;
+
+        names = el.className.trim();
+
+        if( names.indexOf( str ) !== -1 ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * addClass, removeClass, toggleClass, hasClassを一括して行う
+     * @param  {Node} elms
+     * @param  {String} str
+     * @param  {String} type add or remove or toggle or has
+     * @return {Array | Boolean}
+     */
+    function clazz( elms, str, type) {
+        switch( type ) {
+            case 'add'    : return addClass( elms, str );
+            case 'remove' : return removeClass( elms, str );
+            case 'toggle' : return toggleClass( elms, str );
+            case 'has'    : return hasClass( elms, str );
+            default       : return '?';
+        }
+    }
+
     //
     //  helpers
     //=================================================
@@ -311,7 +354,7 @@
         }
 
         switch ( Object_toString.call( obj ) ) {
-            case TYPEOF_STRING   : return 'String';
+            case TYPEOF_STRING : return 'String';
             case TYPEOF_NUMBER : return 'Number';
             case TYPEOF_ARRAY  : return 'Array';
             case TYPEOF_OBJECT : return 'Object';
