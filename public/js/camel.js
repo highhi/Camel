@@ -37,11 +37,11 @@
         TYPEOF_BOOLEAN   = '[object Boolean]',
         TYPEOF_ERROR     = '[object Error]',
         
-        DOM_CONT_LOADED  = 'DOMContentLoaded',
+        DOM_CONT_LOADED       = 'DOMContentLoaded',
 
         REG_SELECTOR_INITIALS = /^([.#]?)[\w\-_]+$/,
 
-        HAS_CLASS_LIST = _shadow.classList ? true : false
+        HAS_CLASS_LIST        = _shadow.classList ? true : false
     ;
 
     var
@@ -98,9 +98,17 @@
      * @param {Fuction} handler 
      */
     function readyHandler( handler ) {
-        _doc.addEventListener( DOM_CONT_LOADED, function() {
-            handler( camel );
-        }, false );
+        if ( _doc.addEventListener ) {
+            _doc.addEventListener( DOM_CONT_LOADED, function() {
+                handler( camel );
+            }, false );
+        } else {
+            AlternativeDOMContentLoaded( handler, camel );
+        }
+    }
+
+    function EventDelegate() {
+
     }
 
     /**
@@ -129,8 +137,6 @@
 
         loots = roots || _doc;
 
-        console.log(loots);
-
         initials = expr.substr( 0, 1 );
 
         switch( initials ) {
@@ -138,8 +144,10 @@
             case '.' : 
                 if ( _doc.getElementsByClassName ) {
                     return loots.getElementsByClassName( expr.substr(1) );
+                } else if( _doc.querySelectorAll ) {
+                    return loots.querySelectorAll( expr );
                 } else {
-                    return AdaptiveGetElementsByClassName.call( loots, expr.substr(1) );
+                    return AlternativeGetElementsByClassName.call( loots, expr.substr(1) );
                 }
             break;
             default  : return loots.getElementsByTagName( expr );
@@ -367,7 +375,7 @@
      * @param {String} str 検索するクラス名
      * @return {Array}
      */
-    function AdaptiveGetElementsByClassName( str ) {
+    function AlternativeGetElementsByClassName( str ) {
         var
             elms = this.getElementsByTagName( '*' ),
             len = elms.length,
@@ -384,6 +392,21 @@
         }
 
         return arr;
+    }
+
+    /**
+     * DOMContentLoadedの補填
+     * @param {Function} func
+     * @param {Function} arg
+     */
+    function AlternativeDOMContentLoaded( func, arg ) {
+        try {
+            _doc.documentElement.doScroll( 'left' );
+        } catch( e ) {
+            setTimeout( AlternativeDOMContentLoaded, 1 );
+            return;
+        }
+        func( arg ) ;
     }
 
     /**
@@ -432,56 +455,25 @@
      */
     function ArrayForEach( callback, thisArg ) {
 
-        var T, k;
+        var k = 0, O, len, kValue;
 
         if ( this === null ) {
             throw new TypeError( " this is null or not defined" );
         }
 
-        // 1. Let O be the result of calling ToObject passing the |this| value as the argument.
-        var O = Object(this);
+        O = Object(this);
+        len = O.length >>> 0;
 
-        // 2. Let lenValue be the result of calling the Get internal method of O with the argument "length".
-        // 3. Let len be ToUint32(lenValue).
-        var len = O.length >>> 0; // Hack to convert O.length to a UInt32
-
-        // 4. If IsCallable(callback) is false, throw a TypeError exception.
-        // See: http://es5.github.com/#x9.11
-        if ( {}.toString.call(callback) != "[object Function]" ) {
+        if ( isFunction( callback ) !== "[object Function]" ) {
             throw new TypeError( callback + " is not a function" );
         }
 
-        // 5. If thisArg was supplied, let T be thisArg; else let T be undefined.
-        if ( thisArg ) {
-            T = thisArg;
-        }
-
-        // 6. Let k be 0
-        k = 0;
-
-        // 7. Repeat, while k < len
         while( k < len ) {
-
-            var kValue;
-
-            // a. Let Pk be ToString(k).
-            //   This is implicit for LHS operands of the in operator
-            // b. Let kPresent be the result of calling the HasProperty internal method of O with argument Pk.
-            //   This step can be combined with c
-            // c. If kPresent is true, then
-
             if ( k in O ) {
-
-                // i. Let kValue be the result of calling the Get internal method of O with argument Pk.
                 kValue = O[ k ];
-
-                // ii. Call the Call internal method of callback with T as the this value and
-                // argument list containing kValue, k, and O.
-                callback.call( T, kValue, k, O );
+                callback.call( thisArg, kValue, k, O );
             }
-            // d. Increase k by 1.
             k++;
-            // 8. return undefined
         }
     }
 
