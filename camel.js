@@ -18,25 +18,7 @@
         _shadow = _doc.createElement( 'a' )
     ;
 
-    _win.camel = marge( camelFactory, {
-        ready      : readyHandler,
-        isString   : isString,
-        isArray    : isArray,
-        isNumber   : isNumber,
-        isObject   : isObject,
-        isFunction : isFunction,
-        isType     : isType,
-        elm        : marge( elementsQuery, {
-            addClass    : elementsAddClass,
-            removeClass : elementsRemoveClass,
-            toggleClass : elementsToggleClass,
-            hasClass    : elementsHasClass,
-            clazz       : elementsClazz,
-            css         : elementsCss,
-            attr        : elementsAttr
-        }),
-        evt        : eventsDefine
-    });
+    var Object_toString = Object.prototype.toString;
 
     var
         TYPEOF_STRING    = '[object String]',
@@ -62,9 +44,30 @@
         REQ_DECAMELIZE   = /([a-z\d])([A-Z])/g
     ;
 
-    var
-        Object_toString = Object.prototype.toString
-    ;
+    _win.camel = marge( camelFactory, {
+        ready      : readyHandler,
+        isString   : isString,
+        isArray    : isArray,
+        isNumber   : isNumber,
+        isObject   : isObject,
+        isFunction : isFunction,
+        isType     : isType,
+        is         : is,
+        marge      : marge,
+        overwrite  : overwrite,
+        extend     : extend,
+        clone      : clone,
+        elm        : marge( elementsQuery, {
+            addClass    : elementsAddClass,
+            removeClass : elementsRemoveClass,
+            toggleClass : elementsToggleClass,
+            hasClass    : elementsHasClass,
+            clazz       : elementsClazz,
+            css         : elementsCss,
+            attr        : elementsAttr
+        }),
+        evt : eventsDefine
+    });
 
     fill( Array.prototype, {
         indexOf : ArrayIndexOf,
@@ -78,7 +81,6 @@
         camelize   : StringCamelize,
         decamelize : StringDeCamelize
     });
-        
 
     //
     //  
@@ -120,9 +122,18 @@
     fill( Camel.prototype, {
         addClass    : optiForCamelMethod( elementsAddClass ),
         removeClass : optiForCamelMethod( elementsRemoveClass ),
-        hasClass    : optiForCamelMethod( elementsHasClass )
+        toggleClass : optiForCamelMethod( elementsToggleClass ),
+        hasClass    : optiForCamelMethod( elementsHasClass ),
+        clazz       : optiForCamelMethod( elementsClazz ),
+        css         : optiForCamelMethod( elementsCss ),
+        attr        : optiForCamelMethod( elementsAttr )
     });
 
+    /**
+     * 関数をCameleオブジェクトのメソッドに最適化する
+     * @param  {Function} func
+     * @return {Array | Camel}
+     */
     function optiForCamelMethod( func ) {
         return function() {
             var
@@ -161,29 +172,18 @@
         }
     }
 
-    function eventsDefine( elms, type, listener ) {
+    function eventsDefine( elm, type, listener ) {
         var
-            original = isString( elms ) ? elementsSelector( elms ) : elms,
-            copy     = original,
-            len      = original.length,
+            len = elm.length,
             closer,
             i
         ;
 
-        if ( !len ) {
-            copy = [original];
-            len = 1;
-        }
-
         if ( HAS_EVT_LISTENER ) {
-            for ( i = len; i--; ) {
-                copy[i].addEventListener( type, listener, false );
-            }
+            elm.addEventListener( type, listener, false );
         } else {
             closer = eventRaising( listener );
-            for ( i = len; i--; ) {
-                copy[i].attachEvent( 'on' + type, closer );
-            }
+            elm.attachEvent( 'on' + type, closer );
         }
     }
 
@@ -213,7 +213,7 @@
      * @return {Node}
      */
     function elementsQuery( expr, roots ) {
-        var str = null;
+        var str ;
 
         if ( isCamel( expr ) ) {
             return expr.elm;
@@ -397,18 +397,18 @@
         ;
 
         if ( argLen === 3 ) {
-            elm.setAttribute( key, value );
+            elm.setAttribute( key.camelize(), value );
         } else if ( argLen === 2 ) {
             switch( isType( key ) ) {
                 case 'String' :
                     if ( elm.hasAttributes( key ) ){
-                        return elm.getAttribute( key );
+                        return elm.getAttribute( key.camelize() );
                     }
                     break;
                 case 'Object' :
                     for ( k in key ) {
                         if ( key.hasOwnProperty( k ) ) {
-                            elm.setAttribute( k, key[k] );
+                            elm.setAttribute( k.camelize(), key[k] );
                         }
                     }
                     break;
@@ -442,18 +442,22 @@
     /**
     * オブジェクトを合成
     *  
-    * @param {Function} a
+    * @param {Function | Object} a
     * @param {Object} b
     * @return {Object}
     */
     function marge( a, b ) {
-        var key = null;
-        for ( key in b ) {
-            if ( b.hasOwnProperty( key ) && !( key in a ) ) {
-                a[ key ] = b[ key ];
+        if ( isObject( a ) || isFunction( a ) && isObject( b ) ) {
+            var key;
+            for ( key in b ) {
+                if ( b.hasOwnProperty( key ) && !( key in a ) ) {
+                    a[ key ] = b[ key ];
+                }
             }
+            return a;
+        } else {
+            return undefined;
         }
-        return a;
     }
 
     /**
@@ -465,7 +469,7 @@
      * @return {void}
      */
     function fill( a, b ) {
-        var key = null;
+        var key;
         for ( key in b ) {
             if ( b.hasOwnProperty( key ) && !( key in a ) ) {
                 a[ key ] = b[ key ];
@@ -475,18 +479,68 @@
 
     /**
      * オブジェクトを上書きする
+     *（子オブジェクトをオブジェクトで上書きした場合、孫オブジェクトは消される）
      * @param  {Object} a
      * @param  {Object} b
      * @return {Object}
      */
-    function overwrite(a, b) {
-        var key = null;
+    function overwrite( a, b ) {
+        if ( !isObject( a ) || !isObject( b ) ) {
+            return undefined;
+        }
+        var key;
         for ( key in b ) {
             if ( b.hasOwnProperty( key ) && a.hasOwnProperty( key ) ) {
                 a[ key ] = b[ key ];
             }
         }
         return a;
+    }
+
+    /**
+     * オブジェクトを上書きする
+     *（子オブジェクトをオブジェクトで上書しても、孫オブジェクトは消されない）
+     * @param  {Object} a
+     * @param  {Object} b
+     * @return {Object}
+     */
+    function extend( a, b ) {
+        if ( !isObject( a ) || !isObject( b ) ) {
+            return undefined;
+        }
+
+        var key, val;
+        for ( key in b ) {
+            if ( b.hasOwnProperty( key ) && a.hasOwnProperty( key ) ) {
+                val = a[ key ];
+                if ( isObject( val ) ) {
+                    a[ key ] = extend( val, b[key] );
+                } else {
+                    a[ key ] = b[ key ];
+                }
+            }
+        }
+        return a;
+    }
+
+    /**
+     * オブジェクトをクローンする
+     * @param  {Object} obj
+     * @return {Object}
+     */
+    function clone( obj ) {
+        if ( !isObject( obj ) ) { return undefined }
+        var key, result = {}, val;
+        for ( key in obj ) {
+            if ( obj.hasOwnProperty( key ) ) {
+                val = obj[key];
+                if ( isObject( val ) ) {
+                    val = clone( val );
+                }
+                result[ key ] = val;
+            }
+        }
+        return result;
     }
 
     /**
@@ -552,6 +606,18 @@
     }
 
     /**
+     * 型比較
+     * @param  {String}  type
+     * @param  {Object}  obj
+     * @return {Boolean}
+     */
+    function is( type, obj ) {
+        var clas = Object.prototype.toString.call(obj).slice(8, -1);
+        return obj !== undefined && obj !== null && clas === type;
+    }
+
+
+    /**
      * getElementsByClassNameの補填
      * @param {Node} roots
      * @param {String} str 検索するクラス名
@@ -597,7 +663,7 @@
     function environmentCheck() {
         var
             ua                   = navigator.userAgent.toUpperCase(),
-            //RE_RENDERRING_ENGINE = /(TRIDENT|WEBKIT|GECKO|PRESTO)\/([\d\.]+)/,
+            RE_RENDERRING_ENGINE = /(TRIDENT|WEBKIT|GECKO|PRESTO)\/([\d\.]+)/,
             RE_RENDERRING_ENGINE = /(TRIDENT|WEBKIT|GECKO|PRESTO)\/([\d\.]+)/,
             RE_MOBILE_DEVICE     = /(?=ANDROID).+(MOBILE)|(ANDROID|IPAD|IPHONE|IPOD|BLACKBERRY|WINDOWS PHONE|WEBOS)/,
             RE_MOBILE_OS         = /(ANDROID|[IPHONE ]?OS|BLACKBERRY\d+|WINDOWS PHONE OS|WEBOS)[\s\/]([\d\._]+)/,

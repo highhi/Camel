@@ -18,6 +18,32 @@
         _shadow = _doc.createElement( 'a' )
     ;
 
+    var Object_toString = Object.prototype.toString;
+
+    var
+        TYPEOF_STRING    = '[object String]',
+        TYPEOF_NUMBER    = '[object Number]',
+        TYPEOF_ARRAY     = '[object Array]',
+        TYPEOF_OBJECT    = '[object Object]',
+        TYPEOF_REGEXP    = '[object RegExp]',
+        TYPEOF_DATE      = '[object Date]',
+        TYPEOF_NULL      = '[object Null]',
+        TYPEOF_UNDEFINED = '[object Undefined]',
+        TYPEOF_FUNCTION  = '[object Function]',
+        TYPEOF_BOOLEAN   = '[object Boolean]',
+        TYPEOF_ERROR     = '[object Error]',
+        
+        DOM_CONT_LOADED  = 'DOMContentLoaded',
+
+        HAS_CLASS_LIST   = _shadow.classList,
+        HAS_DATA_SET     = _shadow.dataset,
+        HAS_EVT_LISTENER = _doc.addEventListener,
+        
+        REQ_TRIM         = /^\s+|\s+$/g,
+        REQ_CAMELIZE     = /-([a-z])/g,
+        REQ_DECAMELIZE   = /([a-z\d])([A-Z])/g
+    ;
+
     _win.camel = marge( camelFactory, {
         ready      : readyHandler,
         isString   : isString,
@@ -26,6 +52,11 @@
         isObject   : isObject,
         isFunction : isFunction,
         isType     : isType,
+        is         : is,
+        marge      : marge,
+        overwrite  : overwrite,
+        extend     : extend,
+        clone      : clone,
         elm        : marge( elementsQuery, {
             addClass    : elementsAddClass,
             removeClass : elementsRemoveClass,
@@ -35,33 +66,8 @@
             css         : elementsCss,
             attr        : elementsAttr
         }),
-        evt        : eventsDefine
+        evt : eventsDefine
     });
-
-    var
-        TYPEOF_STRING         = '[object String]',
-        TYPEOF_NUMBER         = '[object Number]',
-        TYPEOF_ARRAY          = '[object Array]',
-        TYPEOF_OBJECT         = '[object Object]',
-        TYPEOF_REGEXP         = '[object RegExp]',
-        TYPEOF_DATE           = '[object Date]',
-        TYPEOF_NULL           = '[object Null]',
-        TYPEOF_UNDEFINED      = '[object Undefined]',
-        TYPEOF_FUNCTION       = '[object Function]',
-        TYPEOF_BOOLEAN        = '[object Boolean]',
-        TYPEOF_ERROR          = '[object Error]',
-        
-        DOM_CONT_LOADED       = 'DOMContentLoaded',
-
-        HAS_CLASS_LIST        = _shadow.classList,
-        HAS_DATA_SET          = _shadow.dataset,
-        HAS_EVT_LISTENER      = _doc.addEventListener,
-        USER_AGENT            = environmentCheck()
-    ;
-
-    var
-        Object_toString = Object.prototype.toString
-    ;
 
     fill( Array.prototype, {
         indexOf : ArrayIndexOf,
@@ -75,7 +81,6 @@
         camelize   : StringCamelize,
         decamelize : StringDeCamelize
     });
-        
 
     //
     //  
@@ -88,7 +93,13 @@
      * @return {Object} Camelオブジェクト
      */
     function camelFactory( expr ){
-        return new Camel( expr );
+        var elms;
+        if ( isString( expr ) ) {
+            elms = elementsSelector( expr );
+        } else {
+            elms = expr;
+        }
+        return new Camel( elms );
     }
 
     //
@@ -105,7 +116,42 @@
             return new Camel( elms );
         }
 
-        this.elm = elementsSelector( elms );
+        this.elms = elms;
+    }
+
+    fill( Camel.prototype, {
+        addClass    : optiForCamelMethod( elementsAddClass ),
+        removeClass : optiForCamelMethod( elementsRemoveClass ),
+        toggleClass : optiForCamelMethod( elementsToggleClass ),
+        hasClass    : optiForCamelMethod( elementsHasClass ),
+        clazz       : optiForCamelMethod( elementsClazz ),
+        css         : optiForCamelMethod( elementsCss ),
+        attr        : optiForCamelMethod( elementsAttr )
+    });
+
+    /**
+     * 関数をCameleオブジェクトのメソッドに最適化する
+     * @param  {Function} func
+     * @return {Array | Camel}
+     */
+    function optiForCamelMethod( func ) {
+        return function() {
+            var
+                elm,
+                elms    = !isArray( this.elms ) ? [this.elms] : this.elms,
+                arr     = [],
+                rValues = [],
+                i       = 0
+            ;
+
+            while( elm = elms[i++] ) {
+                arr[0] = elm;
+                arr.push( toArray( arguments ) );
+                rValues = func.apply( this, arr );
+            }
+
+            return rValues.length !== 0 ? ( rValues.length === 1 ? rValues[0] : rValues ) : this;
+        }
     }
 
     //
@@ -126,29 +172,18 @@
         }
     }
 
-    function eventsDefine( elms, type, listener ) {
+    function eventsDefine( elm, type, listener ) {
         var
-            original = isString( elms ) ? elementsSelector( elms ) : elms,
-            copy     = original,
-            len      = original.length,
+            len = elm.length,
             closer,
             i
         ;
 
-        if ( !len ) {
-            copy = [original];
-            len = 1;
-        }
-
         if ( HAS_EVT_LISTENER ) {
-            for ( i = len; i--; ) {
-                copy[i].addEventListener( type, listener, false );
-            }
+            elm.addEventListener( type, listener, false );
         } else {
             closer = eventRaising( listener );
-            for ( i = len; i--; ) {
-                copy[i].attachEvent( 'on' + type, closer );
-            }
+            elm.attachEvent( 'on' + type, closer );
         }
     }
 
@@ -178,7 +213,7 @@
      * @return {Node}
      */
     function elementsQuery( expr, roots ) {
-        var str = null;
+        var str ;
 
         if ( isCamel( expr ) ) {
             return expr.elm;
@@ -211,117 +246,67 @@
                     return alternativeGetElementsByClassName( loots, expr.substr(1) );
                 }
             break;
-            default  : return toArray( loots.getElementsByTagName( expr ) );
+            default : return toArray( loots.getElementsByTagName( expr ) );
         }
     }
 
     /**
      * クラス名を追加する
-     * @param {String | Node} elms
+     * @param {String | Node} elm
      * @param {String} str  クラス名
      * @return {Node}
      */
-    function elementsAddClass( elms, str ) {
-        var
-            original = isString( elms ) ? elementsSelector( elms ) : elms,
-            copy     = original,
-            len      = original.length,
-            names,
-            i
-        ;
-
-        if( !len ) {
-            copy = [original];
-            len = 1;
-        }
+    function elementsAddClass( elm, str ) {
+        var names;
 
         if ( HAS_CLASS_LIST ) {
-            for ( i = len; i--; ) {
-                copy[i].classList.add( str );
-            }
+            elm.classList.add( str );
         } else {
-            for ( i = len; i--; ) {
-                names = copy[i].className.trim();
-                if ( names.indexOf( str ) === -1 ) {
-                    copy[i].className = names ? names + ' ' + str : str;
-                }
+            names = elm.className.trim();
+            if ( names.indexOf( str ) === -1 ) {
+                elm.className = names ? names + ' ' + str : str;
             }
         }
-        return original;
     }
 
     /**
      * クラス名を削除する
-     * @param {String | Node} elms
+     * @param {String | Node} elm
      * @param {String} str  クラス名
      * @return {Node}
      */
-    function elementsRemoveClass( elms, str ) {
-        var
-            original = isString( elms ) ? elementsSelector( elms ) : elms,
-            copy     = original,
-            len      = original.length,
-            names,
-            i
-        ;
-
-        if( !len ) {
-            copy = [original];
-            len = 1;
-        }
+    function elementsRemoveClass( elm, str ) {
+        var names;
 
         if ( HAS_CLASS_LIST ) {
-            for ( i = len; i--; ) {
-                copy[i].classList.remove( str );
-            }
+            elm.classList.remove( str );
         } else {
-            for ( i = len; i--; ) {
-                names = copy[i].className.trim();
-                if ( names.indexOf( str ) !== 1 ) {
-                    copy[i].className = names.replace( str, '' ).trim();
-                }
+            names = elm.className.trim();
+            if ( names.indexOf( str ) !== 1 ) {
+                elm.className = names.replace( str, '' ).trim();
             }
         }
-
-        return original;
     }
 
     /**
      * クラス名の追加・削除を交互に行う
-     * @param  {String | Node} elms
+     * @param  {String | Node} elm
      * @param  {String} str
      * @return {Node}
      */
-    function elementsToggleClass( elms, str ) {
-         var
-            original = isString( elms ) ? elementsSelector( elms ) : elms,
-            copy     = original,
-            len      = original.length,
-            names,
-            i
-        ;
-
-        if( !len ) {
-            copy = [original];
-            len  = 1;
-        }
+    function elementsToggleClass( elm, str ) {
+         var names;
 
         if ( HAS_CLASS_LIST ) {
-            for ( i = len; i--; ) {
-                copy[i].classList.toggle( str );
-            }
+            elm.classList.toggle( str );
         } else {
-            for ( i = len; i--; ) {
-                names = copy[i].className.trim();
-                if ( names.indexOf( str ) === -1 ) {
-                    copy[i].className = names ? names + ' ' + str : str;
-                } else {
-                    copy[i].className = names.replace( str, '' ).trim();
-                }
+             names = elm.className.trim();
+            if ( names.indexOf( str ) === -1 ) {
+                elm.className = names ? names + ' ' + str : str;
+            } else {
+                elm.className = names.replace( str, '' ).trim();
             }
         }
-
-        return original;
     }
 
     /**
@@ -331,18 +316,12 @@
      * @return {Boolean}
      */
     function elementsHasClass( elm, str ) {
-        var
-            el  = isString( elm ) ? elementsSelector( elm ) : elm,
-            len = el.length,
-            names
-        ;
-
-        if ( el.length ) { return };
+        var names;
 
         if ( HAS_CLASS_LIST ) {
-            return el.classList.contains( str );
+            return elm.classList.contains( str );
         } else {
-            names = el.className.trim();
+            names = elm.className.trim();
             if( names.indexOf( str ) !== -1 ) {
                 return true;
             }
@@ -352,60 +331,48 @@
 
     /**
      * addClass, removeClass, toggleClass, hasClassを一括して行う
-     * @param  {Node} elms
+     * @param  {Node} elm
      * @param  {String} str
      * @param  {String} type add or remove or toggle or has
      * @return {Array | Boolean}
      */
-    function elementsClazz( elms, str, type) {
+    function elementsClazz( elm, str, type) {
         switch( type ) {
-            case 'add'    : return elementsAddClass( elms, str );
-            case 'remove' : return elementsRemoveClass( elms, str );
-            case 'toggle' : return elementsToggleClass( elms, str );
-            case 'has'    : return elementsHasClass( elms, str );
+            case 'add'    : return elementsAddClass( elm, str );
+            case 'remove' : return elementsRemoveClass( elm, str );
+            case 'toggle' : return elementsToggleClass( elm, str );
+            case 'has'    : return elementsHasClass( elm, str );
             default       : return '?';
         }
     }
 
     /**
      * styleをセットしたりゲットしたり
-     * @param  {Node | String} elms
+     * @param  {Node | String} elm
      * @param  {Object | String} key
      * @param  {Number | String} value
      * @return {Node}
      */
-    function elementsCss( elms, key, value ) {
+    function elementsCss( elm, key, value ) {
         var
-            original = isString( elms ) ? elementsSelector( elms ) : elms,
-            copy     = original,
-            len      = original.length,
             argLen   = arguments.length,
             currentStyle,
             k,
             i
         ;
 
-        if ( !len ) {
-            copy = [original];
-            len  = 1;
-        }
-
         if ( argLen === 3 ) {
-            for ( i = len; i--; ) {
-                copy[i].style[key] = value;
-            }
+            elm.style[ key.camelize() ] = value;
         } else if ( argLen === 2 ) {
 
             switch( isType( key ) ) {
                 case 'String' : 
-                    currentStyle = _doc.defaultView ? _doc.defaultView.getComputedStyle( copy[0], null ) : copy[0].currentStyle;
-                    return currentStyle[key];
+                    currentStyle = _doc.defaultView ? _doc.defaultView.getComputedStyle( elm, null ) : elm.currentStyle;
+                    return currentStyle[ key.camelize() ];
                 case 'Object' :
                     for ( k in key ) {
                         if ( key.hasOwnProperty( k ) ) {
-                            for ( i = len; i--; ) {
-                                copy[i].style[k] = key[k];
-                            }
+                            elm.style[ k.camelize() ] = key[k];
                         }
                     }
                     break;
@@ -413,63 +380,45 @@
         } else {
             throw new Error('invalid arguments');
         }
-
-        return original;
     }
 
     /**
      * 属性をセットしたりゲットしたり
-     * @param  {Node | String} elms
+     * @param  {Node | String} elm
      * @param  {Object | String} key
      * @param  {Number | String} value
      * @return {Node}
      */
-    function elementsAttr( elms, key, value ) {
+    function elementsAttr( elm, key, value ) {
          var
-            original = isString( elms ) ? elementsSelector( elms ) : elms,
-            copy     = original,
-            len      = original.length,
-            argLen   = arguments.length,
+            argLen = arguments.length,
             k,
             i
         ;
 
-        if ( !len ) {
-            copy = [original];
-            len  = 1;
-        }
-
         if ( argLen === 3 ) {
-            for ( i = len; i--; ) {
-                copy[i].setAttribute( key, value );
-            }
+            elm.setAttribute( key.camelize(), value );
         } else if ( argLen === 2 ) {
-            for ( i = len; i--; ) {
-                switch( isType( key ) ) {
-                    case 'String' :
-                        if ( copy[0].hasAttributes( key ) ){
-                            return copy[0].getAttribute( key );
+            switch( isType( key ) ) {
+                case 'String' :
+                    if ( elm.hasAttributes( key ) ){
+                        return elm.getAttribute( key.camelize() );
+                    }
+                    break;
+                case 'Object' :
+                    for ( k in key ) {
+                        if ( key.hasOwnProperty( k ) ) {
+                            elm.setAttribute( k.camelize(), key[k] );
                         }
-                        break;
-                    case 'Object' :
-                        for ( k in key ) {
-                            if ( key.hasOwnProperty( k ) ) {
-                                for ( i = len; i--; ) {
-                                    copy[i].setAttribute( k, key[k] );
-                                }
-                            }
-                        }
-                        break;
-                };
-            }
+                    }
+                    break;
+            };
         } else {
             throw new Error('invalid arguments');
         }
-
-        return original;
     }
 
-    function elementsData( elms, key, value ) {
+    function elementsData( elm, key, value ) {
         var
             original = isString( elms ) ? elementsSelector( elms ) : elms,
             copy     = original,
@@ -478,6 +427,12 @@
             k,
             i
         ;
+
+        if ( argLen === 3 ) {
+            for ( i = len; i--; ) {
+                copy[i].setAttribute( key, value );
+            }
+        }
     }
 
     //
@@ -487,18 +442,22 @@
     /**
     * オブジェクトを合成
     *  
-    * @param {Function} a
+    * @param {Function | Object} a
     * @param {Object} b
     * @return {Object}
     */
     function marge( a, b ) {
-        var key = null;
-        for ( key in b ) {
-            if ( b.hasOwnProperty( key ) && !( key in a ) ) {
-                a[ key ] = b[ key ];
+        if ( isObject( a ) || isFunction( a ) && isObject( b ) ) {
+            var key;
+            for ( key in b ) {
+                if ( b.hasOwnProperty( key ) && !( key in a ) ) {
+                    a[ key ] = b[ key ];
+                }
             }
+            return a;
+        } else {
+            return undefined;
         }
-        return a;
     }
 
     /**
@@ -510,7 +469,7 @@
      * @return {void}
      */
     function fill( a, b ) {
-        var key = null;
+        var key;
         for ( key in b ) {
             if ( b.hasOwnProperty( key ) && !( key in a ) ) {
                 a[ key ] = b[ key ];
@@ -520,18 +479,68 @@
 
     /**
      * オブジェクトを上書きする
+     *（子オブジェクトをオブジェクトで上書きした場合、孫オブジェクトは消される）
      * @param  {Object} a
      * @param  {Object} b
      * @return {Object}
      */
-    function overwrite(a, b) {
-        var key = null;
+    function overwrite( a, b ) {
+        if ( !isObject( a ) || !isObject( b ) ) {
+            return undefined;
+        }
+        var key;
         for ( key in b ) {
             if ( b.hasOwnProperty( key ) && a.hasOwnProperty( key ) ) {
                 a[ key ] = b[ key ];
             }
         }
         return a;
+    }
+
+    /**
+     * オブジェクトを上書きする
+     *（子オブジェクトをオブジェクトで上書しても、孫オブジェクトは消されない）
+     * @param  {Object} a
+     * @param  {Object} b
+     * @return {Object}
+     */
+    function extend( a, b ) {
+        if ( !isObject( a ) || !isObject( b ) ) {
+            return undefined;
+        }
+
+        var key, val;
+        for ( key in b ) {
+            if ( b.hasOwnProperty( key ) && a.hasOwnProperty( key ) ) {
+                val = a[ key ];
+                if ( isObject( val ) ) {
+                    a[ key ] = extend( val, b[key] );
+                } else {
+                    a[ key ] = b[ key ];
+                }
+            }
+        }
+        return a;
+    }
+
+    /**
+     * オブジェクトをクローンする
+     * @param  {Object} obj
+     * @return {Object}
+     */
+    function clone( obj ) {
+        if ( !isObject( obj ) ) { return undefined }
+        var key, result = {}, val;
+        for ( key in obj ) {
+            if ( obj.hasOwnProperty( key ) ) {
+                val = obj[key];
+                if ( isObject( val ) ) {
+                    val = clone( val );
+                }
+                result[ key ] = val;
+            }
+        }
+        return result;
     }
 
     /**
@@ -597,6 +606,18 @@
     }
 
     /**
+     * 型比較
+     * @param  {String}  type
+     * @param  {Object}  obj
+     * @return {Boolean}
+     */
+    function is( type, obj ) {
+        var clas = Object.prototype.toString.call(obj).slice(8, -1);
+        return obj !== undefined && obj !== null && clas === type;
+    }
+
+
+    /**
      * getElementsByClassNameの補填
      * @param {Node} roots
      * @param {String} str 検索するクラス名
@@ -642,7 +663,7 @@
     function environmentCheck() {
         var
             ua                   = navigator.userAgent.toUpperCase(),
-            //RE_RENDERRING_ENGINE = /(TRIDENT|WEBKIT|GECKO|PRESTO)\/([\d\.]+)/,
+            RE_RENDERRING_ENGINE = /(TRIDENT|WEBKIT|GECKO|PRESTO)\/([\d\.]+)/,
             RE_RENDERRING_ENGINE = /(TRIDENT|WEBKIT|GECKO|PRESTO)\/([\d\.]+)/,
             RE_MOBILE_DEVICE     = /(?=ANDROID).+(MOBILE)|(ANDROID|IPAD|IPHONE|IPOD|BLACKBERRY|WINDOWS PHONE|WEBOS)/,
             RE_MOBILE_OS         = /(ANDROID|[IPHONE ]?OS|BLACKBERRY\d+|WINDOWS PHONE OS|WEBOS)[\s\/]([\d\._]+)/,
@@ -774,14 +795,14 @@
      * String.prototype.trim の補填
      */
     function StringTrim() {
-        return this.replace(/^\s+|\s+$/g,'');
+        return this.replace( REQ_TRIM, '' );
     }
 
     /**
      * -,_などで区切られた文字列をキャメルケースに変換する
      */
     function StringCamelize() {
-        return this.replace(/(\-|\_)(\w)/g, function (a, b, c) {
+        return this.replace( REQ_CAMELIZE, function (_, c) {
             return c ? c.toUpperCase() : '';
         });
     }
@@ -792,7 +813,7 @@
      */
     function StringDeCamelize( sep ) {
         sep = sep || '-';
-        return this.replace(/([a-z\d])([A-Z])/g, '$1' + (sep) + '$2').toLowerCase();
+        return this.replace( REQ_DECAMELIZE, '$1' + (sep) + '$2').toLowerCase();
     }
     
 })( this );
